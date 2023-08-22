@@ -1,0 +1,202 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+\usepackage{xurl}
+
+\title{Emergenseed}
+\author{Cypher Stack\thanks{\url{https://cypherstack.com}}}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+	Digital wallet seeds can be derived from mnemonics, which are representations of entropy intended to be memorized or stored using words.
+	Various approaches to safe handling of mnemonic data have been proposed, intending to address different threat models and use cases.
+	One threat model of interest is that of a temporary high-risk environment where a user's property is likely to be inspected or seized.
+	To address this threat model, we propose Emergenseed, a mnemonic derivation design that uses lower-entropy input data to aid in memorization.
+	Coupled with an expensive key derivation function and intended only for short-term use, Emergenseed offers tradeoffs that may aid users in ways that other designs do not.
+\end{abstract}
+
+We note that Emergenseed has not undergone external formal review.
+As such, it should be considered experimental and unsuitable for production use.
+
+
+\section{Introduction}
+
+\subsection{Mnemonics}
+
+Wallet keys for distributed digital asset protocols are often derived from so-called \textit{mnemonics}, where input entropy from a high-quality source of randomness is mapped into words.
+These words are typically more convenient than byte data for memorization, storage, and communication.
+
+To use a mnemonic for deriving wallet keys, different approaches can be used.
+The design of BIP39, which is commonly used, applies a password-based key derivation function (PBKDF) to a mnemonic in order to derive a seed suitable for wallet keys.
+Electrum uses a related design.
+Most such designs use a common 2048-word list for a given language, where words are selected to avoid confusion.
+Selection of 12 random words from such a list, for example, can account for 128 bits of input entropy.
+
+In all cases, there is a requirement for high input entropy, which ensures that any resuting wallet key meets a 128-bit security target.
+
+
+\subsection{Threat model}
+
+Some threat models make the use of mnemonics more risky.
+For example, a threat model of interest is that of a temporary high-risk environment where a user may have their property inspected or seized.
+In such a threat model, inspection or seizure of a mnemonic may result in fund loss or other undesirable consequences.
+This means that the user may not wish to reveal that they are in possession of a mnemonic at all.
+
+A notable approach to this threat model is that of Border Wallets\footnote{\url{https://www.borderwallets.com/}}.
+In the Border Wallets design, input entropy is represented as a large grid of mnemonic words.
+To produce a mnemonic, the user considers a secret pattern that, when applied to the grid, uses the corresponding words.
+
+Given the threat model of interest, this may be undesirable.
+The presence of such a grid may indicate that the user is in possession of a mnemonic (to be determined by the user's secret pattern).
+Further, even though a Border Wallets grid may be generated using high-entropy input, it is unlikely that a user-produced pattern is of sufficiently high entropy to mitigate the risk of a brute-force attack if the grid is seized.
+
+
+\subsection{Our contribution}
+
+To better address the threat model, we introduce \textit{Emergenseed}, a design for temporary high-risk environments where a user must not have physical possession of a representation of a mnemonic.
+
+One approach could simply be memorization of such a mnemonic.
+While this would meet our goal, it is often impractical.
+A user may be unable to memorize a 12-word mnemonic reliably; further, a temporary high-risk situation may arise in short order, making memorization even less feasible.
+
+The design of Emergenseed controversially trades away input entropy.
+On its own, this is unsafe, as an adversary could simply attempt a brute-force attack on the resulting wallet key.
+To counter this, we apply a high-cost key derivation function to a lower-entropy mnemonic in order to make such an attack infeasible over the time scale of the high-risk environment exposure.
+Because the key derivation function relies on hardware performance, the extant brute-force risk may be further mitigated through the use of either a random salt or periodically-changing random oracle output, as well as careful user instruction to use an Emergenseed-derived wallet only temporarily and with eventual brute-force attack in mind.
+
+We believe that Emergenseed provides useful tradeoffs for the particular threat model of interest, as the user can memorize a mnemonic quickly and avoid being in possession of any physical representation of it.
+
+
+\section{Design}
+
+\subsection{Overview}
+
+Before defining algorithms in detail, we informally describe the steps the user takes to use Emergenseed.
+Prior to entering the high-risk environment, the user does the following:
+\begin{enumerate}
+	\item Generates sufficient entropy, maps it to words to form a mnemonic, and memorizes the mnemonic.
+	\item Processes the menmonic into a BIP39 wallet seed through the use of a key derivation function.
+	\item Transfers funds into the resuting wallet as needed.
+\end{enumerate}
+While in the high-risk environment, the user is not in possession of physical representations of the mnemonic.
+After existing the high-risk environment, the user does the following:
+\begin{enumerate}
+	\item Recalls the mnemonic from memory.
+	\item Processes the mnemonic into a BIP39 wallet seed using the key derivation function.
+	\item Transfers funds out of the resulting wallet.
+\end{enumerate}
+
+
+\subsection{Algorithms}
+
+Emergenseed requires several underlying algorithms.
+
+\begin{itemize}
+	\item $\mathsf{Params} \mapsto t, n, p$. This function outputs a target entropy level $t$ (in bits), a required minimum entropy level $n$, and a set of PBKDF parameters $p$.
+	\item $\mathsf{Entropy}(n) \mapsto b$. This function takes a number $n$ and outputs a list $b$ of $n$ random bits, sampled uniformly and independently from a high-quality source of randomness.
+	\item $\mathsf{BitsToWords}(b) \mapsto w$. This function takes a list $b$ of bits and outputs a list of words $w$ that bijectively represent them.
+	\item $\mathsf{WordsToBits}(w) \mapsto \{b, \perp\}$. This function takes a list $w$ of words and outputs a list of bits $b$ that represent them (if the words are valid) or failure.
+	\item $\mathsf{Salt}(p) \mapsto s$. This function takes a set of parameters $p$ and outputs a salt $s$ according to a specified oracle.
+	\item $\mathsf{PBKDF}(p, s, w) \mapsto k$. This function takes a set of parameters $p$, salt $s$, and list of words $w$, and outputs a key $k$ that is the result of applying a password-based key derivation function using $w$ as input.
+	\item $\mathsf{BIP39}(k) \mapsto s$. This function takes a key $k$, processes it as input entropy to the BIP39 algorithm, and outputs a wallet seed $s$.
+\end{itemize}
+
+
+\subsection{Protocol}
+
+Prior to entering the high-risk environment, the user sets up an Emergenseed using the following steps:
+\begin{enumerate}
+	\item Runs $\mathsf{Params} \mapsto t, n, p$ to obtain parameters.
+	\item Uses a client device to run $\mathsf{Entropy}(n') \mapsto b$ to obtain random bits, where $n' \geq n$.
+	\item Instructs the client device to run $\mathsf{BitsToWords}(b) \mapsto w$ to map the random bits to words.
+	\item With the help of the client device, memorizes the words.
+	\item Queries the oracle $\mathsf{Salt}(p) \mapsto s$ to obtain a salt.\footnote{We describe options later for how to instantiate such an oracle.}
+	\item Uses the client device to run $\mathsf{PBKDF}(p, s, w) \mapsto k$ to produce a key.
+	\item Produces a wallet seed by running $\mathsf{BIP39}(k) \mapsto s$.
+	\item Uses wallet software to transfer funds into the wallet with seed $s$.
+	\item Clears data from the client device as appropriate.
+\end{enumerate}
+
+At this point, the user has produced an Emergenseed-based wallet, memorized the requisite words, and transferred funds into the wallet.
+After existing the high-risk environment, the user reconstructs the wallet using the following steps:
+\begin{enumerate}
+	\item Recalls the memorized words $w$.
+	\item Queries the oracle $\mathsf{Salt}(p) \mapsto s$ to obtain the salt.
+	\item Uses the client device to run $\mathsf{PBKDF}(p, s, w) \mapsto k$ to produce a key.
+	\item Produces a wallet seed by running $\mathsf{BIP39}(k) \mapsto s$.
+	\item Uses wallet software to transfer funds out of the wallet with seed $s$ to another wallet produced using the standard BIP39 approach (that is, without using the Emergenseed PBKDF).
+\end{enumerate}
+
+At this point, the user has retrieved funds and moved them to a safer ``full-entropy'' wallet.
+
+
+\section{Recommendations}
+
+The design is somewhat general, in that it is flexible to the entropy parameters and PBKDF.
+We provide specific recommendations here to aid implementers.
+
+
+\subsection{Game-based approach to entropy memorization}
+
+The more entropy corresponding to words memorized by the user, the safer the resulting Emergenseed-based wallet will be against brute-force attacks.
+
+We therefore recommend that the minimum entropy be set to at least $n = 77$ bits.
+However, we stress that this alone is \textit{insufficient} for any kind of long-term storage, which is why we require the use of a PBKDF to increase the cost of a brute-force attack so as to be impractical on a time scale that is on the order of the high-risk environment exposure.
+This particular choice of $n$ corresponds to $7$ words from the BIP39 word list.
+
+One approach to maximizing the actual entropy $n'$ used to produce an Emergenseed is to have the user play a memory game with their device.
+Such a game can operate in rounds, where each round introduces a new additional word for the user to memorize.
+To advance to the next round, the user must enter (or select from a list) all words in order up to the current round.
+Once the user reaches their memorization limit and has memorized words corresponding to some $n' \geq n$ bits of entropy, the device proceeds with the PBKDF step of the process.
+
+
+\subsection{PBKDF parameters}
+
+The use of a modern PBKDF increases the cost of a brute-force attack on the memorized words produced by the client device.
+Any PBKDF choice cannot be relied on for long-term protection, as increases in hardware and software capacity over time change the risk.
+The intent of Emergenseed is to have such wallets be used for short periods of time, after which funds are moved to wallets intended for safe longer-term use.
+
+Currently, the state of the art in PBKDF design is \texttt{Argon2}, a flexible PBKDF that can be configured to require effort in computation time and memory use to thwart attackers.
+While estimating the cost of an attack is difficult, we choose to use the approach from 1Password\footnote{\url{https://github.com/agilebits/crackme}} that looks at cost in terms of electricity and capital; while this is by no means a comprehensive approach, we find it reasonable enough.
+A calcalator using this method is available\footnote{\url{https://passwordbits.com/passphrase-cracking-calculator/}}.
+
+We initially recommend that \texttt{Argon2id} be used with at least $100$ iterations, $64$ MiB of memory, parallelism factor $4$, salt length $16$ bytes, and output length $256$ bits.
+While we do not specifically require the mitigation of side-channel attacks, we like the balanced design of \texttt{Argon2id}.
+This is estimated to impose a cost well exceeding trillions of dollars for a brute-force attack, which we consider more than adequate for the Emergenseed threat model.
+
+
+\subsection{Use of random oracle in place of salt}
+
+The Emergenseed design requires a salt as input to the PBKDF.
+Requiring a salt with suitable entropy stops an adversary from precomputing possible Emergenseed seeds once the adversary learns of the design.
+Because confiscation is part of the Emergenseed threat model, we would like to avoid the user being required to carry the salt data, which is unlikely to be memorized.
+
+Our design approach is to replace a randomly-sampled salt with the output of a random oracle that changes on a periodic basis.
+If the output of this oracle is of high entropy and cannot be predicted in advance, an adversary cannot begin seed precomputation until it sees the output expected to be used by the user.
+Provided the user is able to query the oracle identically before and after exposure to the high-risk environment, they will obtain the same PBKDF output each time.
+
+There are many choices of oracle that could be used.
+We propose that block hashes from the Bitcoin blockchain be used, such that the chosen block changes every month according to a known schedule.
+With this approach, the user need only remember the month when the Emergenseed was produced, and the user's device can query for the appropriate block hash.
+We note that this assumes the user's client device can securely query this oracle.
+
+While we like the use of the Bitcoin network as a public random oracle due to the distributed nature of block production and high entropy, the user may wish to use some other oracle (noting that other oracles may provide far less entropy and be susceptible to easier manipulation): stock market data, lottery draws, newspaper headlines, and the like.
+
+
+\subsection{Choice of safe asset protocols}
+
+Even with the use of a brute-force-resistant PBKDF, an Emergenseed-based wallet is not suitable for long-term use.
+As hardware and software advance, a dedicated attacker may eventually collide with an Emergenseed.
+At this point, the user has presumably already transferred out their funds.
+However, the nature of many digital asset protocols is such that the history and trajectory of funds can be examined, either with or without the corresponding seed.
+
+The user should carefully determine if any particular digital asset protocol is suitably safe because of such risks.
+We note that while BIP39 (which is used to produce an Emergenseed) was designed with Bitcoin in mind, it can (and is) used for other digital asset protocols due to its general nature.
+
+
+\end{document}
