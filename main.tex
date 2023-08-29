@@ -84,7 +84,7 @@ Prior to entering the high-risk environment, the user does the following:
 	\item Transfers funds into the resuting wallet as needed.
 \end{enumerate}
 While in the high-risk environment, the user is not in possession of physical representations of the mnemonic.
-After existing the high-risk environment, the user does the following:
+After exiting the high-risk environment, the user does the following:
 \begin{enumerate}
 	\item Recalls the mnemonic from memory.
 	\item Processes the mnemonic into a BIP39 wallet seed using the key derivation function.
@@ -123,7 +123,7 @@ Prior to entering the high-risk environment, the user sets up an Emergenseed usi
 \end{enumerate}
 
 At this point, the user has produced an Emergenseed-based wallet, memorized the requisite words, and transferred funds into the wallet.
-After existing the high-risk environment, the user reconstructs the wallet using the following steps:
+After exiting the high-risk environment, the user reconstructs the wallet using the following steps:
 \begin{enumerate}
 	\item Recalls the memorized words $w$.
 	\item Queries the oracle $\mathsf{Salt}(p) \mapsto s$ to obtain the salt.
