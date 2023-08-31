@@ -98,12 +98,12 @@ After exiting the high-risk environment, the user does the following:
 Emergenseed requires several underlying algorithms.
 
 \begin{itemize}
-	\item $\mathsf{Params} \mapsto t, n, p$. This function outputs a target entropy level $t$ (in bits), a required minimum entropy level $n$, and a set of PBKDF parameters $p$.
+	\item $\mathsf{Params} \mapsto n, p$. This function outputs a target entropy level $n$ in bits that is a multiple of 11, and a set of PBKDF parameters $p$.
 	\item $\mathsf{Entropy}(n) \mapsto b$. This function takes a number $n$ and outputs a list $b$ of $n$ random bits, sampled uniformly and independently from a high-quality source of randomness.
-	\item $\mathsf{BitsToWords}(b) \mapsto w$. This function takes a list $b$ of bits and outputs a list of words $w$ that bijectively represent them.
-	\item $\mathsf{WordsToBits}(w) \mapsto \{b, \perp\}$. This function takes a list $w$ of words and outputs a list of bits $b$ that represent them (if the words are valid) or failure.
+	\item $\mathsf{BitsToWords}(b) \mapsto w$. This function takes a list $b$ of bits and outputs a list of BIP39 words $w$ that bijectively represent them.
+	\item $\mathsf{WordsToBits}(w) \mapsto b$. This function takes a list $w$ of BIP39 words and outputs a list of bits $b$ that represent them.
 	\item $\mathsf{Salt}(p) \mapsto s$. This function takes a set of parameters $p$ and outputs a salt $s$ according to a specified oracle.
-	\item $\mathsf{PBKDF}(p, s, w) \mapsto k$. This function takes a set of parameters $p$, salt $s$, and list of words $w$, and outputs a key $k$ that is the result of applying a password-based key derivation function using $w$ as input.
+	\item $\mathsf{PBKDF}(p, s, b) \mapsto k$. This function takes a set of parameters $p$, salt $s$, and list of bits $b$, and outputs a key $k$ that is the result of applying a password-based key derivation function using $b$ as input.
 	\item $\mathsf{BIP39}(k) \mapsto s$. This function takes a key $k$, processes it as input entropy to the BIP39 algorithm, and outputs a wallet seed $s$.
 \end{itemize}
 
@@ -112,12 +112,14 @@ Emergenseed requires several underlying algorithms.
 
 Prior to entering the high-risk environment, the user sets up an Emergenseed using the following steps:
 \begin{enumerate}
-	\item Runs $\mathsf{Params} \mapsto t, n, p$ to obtain parameters.
-	\item Uses a client device to run $\mathsf{Entropy}(n') \mapsto b$ to obtain random bits, where $n' \geq n$.
-	\item Instructs the client device to run $\mathsf{BitsToWords}(b) \mapsto w$ to map the random bits to words.
+	\item Runs $\mathsf{Params} \mapsto n, p$ to obtain parameters.
+	\item Uses a client device to run $\mathsf{Entropy}\left( \frac{16n}{11} \right) \mapsto b$ to obtain random bits.
+	\item Partitions the bits of $b$ into $\frac{n}{11}$ pairs of bytes.
+	\item For each pair of partitioned bytes in $b$, clears the $5$ high bits of the second byte.
+	\item Instructs the client device to run $\mathsf{BitsToWords}(b) \mapsto w$ to interpret each pair of bytes as the little-endian encoding of an index, and return the words corresponding to all such indices.
 	\item With the help of the client device, memorizes the words.
 	\item Queries the oracle $\mathsf{Salt}(p) \mapsto s$ to obtain a salt.\footnote{We describe options later for how to instantiate such an oracle.}
-	\item Uses the client device to run $\mathsf{PBKDF}(p, s, w) \mapsto k$ to produce a key.
+	\item Uses the client device to run $\mathsf{PBKDF}(p, s, b) \mapsto k$ to produce a key.
 	\item Produces a wallet seed by running $\mathsf{BIP39}(k) \mapsto s$.
 	\item Uses wallet software to transfer funds into the wallet with seed $s$.
 	\item Clears data from the client device as appropriate.
@@ -127,13 +129,21 @@ At this point, the user has produced an Emergenseed-based wallet, memorized the 
 After exiting the high-risk environment, the user reconstructs the wallet using the following steps:
 \begin{enumerate}
 	\item Recalls the memorized words $w$.
+	\item Instructs the client device to run $\mathsf{WordsToBits}(w)$ to interpret the index of each word as a pair of bytes with little-endian encoding, and return the set of all such bytes.
 	\item Queries the oracle $\mathsf{Salt}(p) \mapsto s$ to obtain the salt.
-	\item Uses the client device to run $\mathsf{PBKDF}(p, s, w) \mapsto k$ to produce a key.
+	\item Uses the client device to run $\mathsf{PBKDF}(p, s, b) \mapsto k$ to produce a key.
 	\item Produces a wallet seed by running $\mathsf{BIP39}(k) \mapsto s$.
 	\item Uses wallet software to transfer funds out of the wallet with seed $s$ to another wallet produced using the standard BIP39 approach (that is, without using the Emergenseed PBKDF).
 \end{enumerate}
 
 At this point, the user has retrieved funds and moved them to a safer ``full-entropy'' wallet.
+
+We note that the method of mapping bits to and from BIP39 words is somewhat nonstandard.
+In BIP39, input entropy is partitioned into sets of 11 bits that are each mapped directly to an index.
+While this is optimal in the sense that all input bits are used, it requires nontrivial bit operations, since input entropy is typically obtained and stored in bytes.
+The method used in Emergenseed requires extra entropy, some of which is discarded by clearing bits.
+However, the bit operations used to do so are much simpler and less prone to implementation error.
+This design does not affect security, as it does not introduce bias into the resulting indices, is compatible with the PBKDF operation, and provides the required target entropy of $n$ bits.
 
 
 \section{Recommendations}
@@ -146,14 +156,15 @@ We provide specific recommendations here to aid implementers.
 
 The more entropy corresponding to words memorized by the user, the safer the resulting Emergenseed-based wallet will be against brute-force attacks.
 
-We therefore recommend that the minimum entropy be set to at least $n = 77$ bits.
+We therefore recommend that the target entropy be set to at least $n = 77$ bits.
 However, we stress that this alone is \textit{insufficient} for any kind of long-term storage, which is why we require the use of a PBKDF to increase the cost of a brute-force attack so as to be impractical on a time scale that is on the order of the high-risk environment exposure.
 This particular choice of $n$ corresponds to $7$ words from the BIP39 word list.
 
-One approach to maximizing the actual entropy $n'$ used to produce an Emergenseed is to have the user play a memory game with their device.
+One approach to maximizing the target entropy used to produce an Emergenseed is to have the user play a memory game with their device.
 Such a game can operate in rounds, where each round introduces a new additional word for the user to memorize.
 To advance to the next round, the user must enter (or select from a list) all words in order up to the current round.
-Once the user reaches their memorization limit and has memorized words corresponding to some $n' \geq n$ bits of entropy, the device proceeds with the PBKDF step of the process.
+Once the user reaches their memorization limit and has memorized words corresponding to the target entropy, the device proceeds with the PBKDF step of the process.
+This approach also allows the user to exceed the entropy target for an extra security margin.
 
 
 \subsection{PBKDF parameters}
