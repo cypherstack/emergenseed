@@ -4,7 +4,7 @@
 \usepackage{hyperref}
 \usepackage{xurl}
 
-\title{Emergenseed}
+\title{Emergenseed: multi-asset mnemonics for high-risk environments}
 \author{Cypher Stack\thanks{\url{https://cypherstack.com}}}
 \date{\today}
 
@@ -16,7 +16,7 @@
 	Digital wallet seeds can be derived from mnemonics, which are representations of entropy intended to be memorized or stored using words.
 	Various approaches to safe handling of mnemonic data have been proposed, intending to address different threat models and use cases.
 	One threat model of interest is that of a temporary high-risk environment where a user's property is likely to be inspected or seized.
-	To address this threat model, we propose Emergenseed, a mnemonic derivation design that uses lower-entropy input data to aid in memorization.
+	To address this threat model, we propose Emergenseed, a mnemonic derivation design that uses controlled lower-entropy input data to aid in memorization, and that supports safe use across multiple asset types and protocols.
 	Coupled with an expensive key derivation function and intended only for short-term use, Emergenseed offers tradeoffs that may aid users in ways that other designs do not.
 \end{abstract}
 
@@ -64,9 +64,10 @@ One approach could simply be memorization of such a mnemonic.
 While this would meet our goal, it is often impractical.
 A user may be unable to memorize a 12-word mnemonic reliably; further, a temporary high-risk situation may arise in short order, making memorization even less feasible.
 
-The design of Emergenseed controversially trades away input entropy.
-On its own, this is unsafe, as an adversary could simply attempt a brute-force attack on the resulting wallet key.
-To counter this, we apply a high-cost key derivation function to a lower-entropy mnemonic in order to make such an attack infeasible over the time scale of the high-risk environment exposure.
+The design of Emergenseed controversially trades away input entropy, but in a controlled way.
+On its own, the use of low-entropy input is unsafe, as an adversary could simply attempt a brute-force attack on the resulting wallet key.
+To counter this, we apply a high-cost key derivation function to input with a controlled amount of known entropy in order to make such an attack infeasible over the time scale of the high-risk environment exposure.
+Application of an asset type identifier as associated data to the key derivation function allows for the safe use of a single mnemonic across multiple asset types and protocols.
 Because the key derivation function relies on hardware performance, the extant brute-force risk may be further mitigated through the use of either a random salt or periodically-changing random oracle output, as well as careful user instruction to use an Emergenseed-derived wallet only temporarily and with eventual brute-force attack in mind.
 
 We believe that Emergenseed provides useful tradeoffs for the particular threat model of interest, as the user can memorize a mnemonic quickly and avoid being in possession of any physical representation of it.
@@ -80,7 +81,7 @@ Before defining algorithms in detail, we informally describe the steps the user 
 Prior to entering the high-risk environment, the user does the following:
 \begin{enumerate}
 	\item Generates sufficient entropy, maps it to words to form a mnemonic, and memorizes the mnemonic.
-	\item Processes the menmonic into a BIP39 wallet seed through the use of a key derivation function.
+	\item Processes the menmonic into a BIP39 wallet seed through the use of an additional high-cost key derivation function.
 	\item Transfers funds into the resuting wallet as needed.
 \end{enumerate}
 While in the high-risk environment, the user is not in possession of physical representations of the mnemonic.
@@ -168,6 +169,12 @@ A calcalator using this method is available\footnote{\url{https://passwordbits.c
 We initially recommend that \texttt{Argon2id} be used with at least $100$ iterations, $64$ MiB of memory, parallelism factor $4$, salt length $16$ bytes, and output length $256$ bits.
 While we do not specifically require the mitigation of side-channel attacks, we like the balanced design of \texttt{Argon2id}.
 This is estimated to impose a cost well exceeding trillions of dollars for a brute-force attack, which we consider more than adequate for the Emergenseed threat model.
+
+The choice of a modern PBKDF like \texttt{Argon2} enables the safe use of an Emergenseed for multiple asset protocols and types.
+While the key derivation method of BIP32 supports the derivation of keys for multiple asset types from a single seed as specified in BIP44, this process is not universal across all asset protocols for which the user may need support.
+To counter the risk of unsafe key collision, we propose the use of the \texttt{Argon2} associated data field as an additional layer of key separation.
+We recommend that this associated data field be populated with a domain separator that includes an asset type encoding from the SLIP44 registration list\footnote{\url{https://github.com/satoshilabs/slips/blob/master/slip-0044.md}} to reduce ambiguity and the likelihood of unintended collision.
+This still supports the use of later BIP32 and BIP44 key derivation, and is not necessary if the user only wishes to support asset protocols compatible with these standards.
 
 
 \subsection{Use of random oracle in place of salt}
