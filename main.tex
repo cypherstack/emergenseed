@@ -37,7 +37,7 @@ Electrum uses a related design.
 Most such designs use a common 2048-word list for a given language, where words are selected to avoid confusion.
 Selection of 12 random words from such a list, for example, can account for 128 bits of input entropy.
 
-In all cases, there is a requirement for high input entropy, which ensures that any resuting wallet key meets a 128-bit security target.
+In all cases, there is a requirement for high input entropy, which ensures that any resulting wallet key meets a 128-bit security target.
 
 
 \subsection{Threat model}
@@ -82,7 +82,7 @@ Prior to entering the high-risk environment, the user does the following:
 \begin{enumerate}
 	\item Generates sufficient entropy, maps it to words to form a mnemonic, and memorizes the mnemonic.
 	\item Processes the menmonic into a BIP39 wallet seed through the use of an additional high-cost key derivation function.
-	\item Transfers funds into the resuting wallet as needed.
+	\item Transfers funds into the resulting wallet as needed.
 \end{enumerate}
 While in the high-risk environment, the user is not in possession of physical representations of the mnemonic.
 After exiting the high-risk environment, the user does the following:
@@ -175,7 +175,7 @@ The intent of Emergenseed is to have such wallets be used for short periods of t
 
 Currently, the state of the art in PBKDF design is \texttt{Argon2}, a flexible PBKDF that can be configured to require effort in computation time and memory use to thwart attackers.
 While estimating the cost of an attack is difficult, we choose to use the approach from 1Password\footnote{\url{https://github.com/agilebits/crackme}} that looks at cost in terms of electricity and capital; while this is by no means a comprehensive approach, we find it reasonable enough.
-A calcalator using this method is available\footnote{\url{https://passwordbits.com/passphrase-cracking-calculator/}}.
+A calculator using this method is available\footnote{\url{https://passwordbits.com/passphrase-cracking-calculator/}}.
 
 We initially recommend that \texttt{Argon2id} be used with at least $100$ iterations, $64$ MiB of memory, parallelism factor $4$, salt length $16$ bytes, and output length $256$ bits.
 While we do not specifically require the mitigation of side-channel attacks, we like the balanced design of \texttt{Argon2id}.
@@ -214,7 +214,7 @@ At this point, the user has presumably already transferred out their funds.
 However, the nature of many digital asset protocols is such that the history and trajectory of funds can be examined, either with or without the corresponding seed.
 
 The user should carefully determine if any particular digital asset protocol is suitably safe because of such risks.
-We note that while BIP39 (which is used to produce an Emergenseed) was designed with Bitcoin in mind, it can (and is) used for other digital asset protocols due to its general nature.
+We note that while BIP39 (which is used to produce an Emergenseed) was designed with Bitcoin in mind, it can be (and is) used for other digital asset protocols due to its general nature.
 
 
 \end{document}
