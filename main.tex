@@ -32,7 +32,7 @@ Wallet keys for distributed digital asset protocols are often derived from so-ca
 These words are typically more convenient than byte data for memorization, storage, and communication.
 
 To use a mnemonic for deriving wallet keys, different approaches can be used.
-The design of BIP39, which is commonly used, applies a password-based key derivation function (PBKDF) to a mnemonic in order to derive a seed suitable for wallet keys.
+The design of BIP-39, which is commonly used, applies a password-based key derivation function (PBKDF) to a mnemonic in order to derive a seed suitable for wallet keys.
 Electrum uses a related design.
 Most such designs use a common 2048-word list for a given language, where words are selected to avoid confusion.
 Selection of 12 random words from such a list, for example, can account for 128 bits of input entropy.
@@ -69,6 +69,7 @@ On its own, the use of low-entropy input is unsafe, as an adversary could simply
 To counter this, we apply a high-cost key derivation function to input with a controlled amount of known entropy in order to make such an attack infeasible over the time scale of the high-risk environment exposure.
 Application of an asset type identifier as associated data to the key derivation function allows for the safe use of a single mnemonic across multiple asset types and protocols.
 Because the key derivation function relies on hardware performance, the extant brute-force risk may be further mitigated through the use of either a random salt or periodically-changing random oracle output, as well as careful user instruction to use an Emergenseed-derived wallet only temporarily and with eventual brute-force attack in mind.
+Emergenseed uses BIP-39 derivation as its final step; this means it is compatible with any client software that supports BIP-39, which can simplify implementation.
 
 We believe that Emergenseed provides useful tradeoffs for the particular threat model of interest, as the user can memorize a mnemonic quickly and avoid being in possession of any physical representation of it.
 
@@ -81,14 +82,14 @@ Before defining algorithms in detail, we informally describe the steps the user 
 Prior to entering the high-risk environment, the user does the following:
 \begin{enumerate}
 	\item Generates sufficient entropy, maps it to words to form a mnemonic, and memorizes the mnemonic.
-	\item Processes the menmonic into a BIP39 wallet seed through the use of an additional high-cost key derivation function.
+	\item Processes the menmonic into a BIP-39 wallet seed through the use of an additional high-cost key derivation function.
 	\item Transfers funds into the resulting wallet as needed.
 \end{enumerate}
 While in the high-risk environment, the user is not in possession of physical representations of the mnemonic.
 After exiting the high-risk environment, the user does the following:
 \begin{enumerate}
 	\item Recalls the mnemonic from memory.
-	\item Processes the mnemonic into a BIP39 wallet seed using the key derivation function.
+	\item Processes the mnemonic into a BIP-39 wallet seed using the key derivation function.
 	\item Transfers funds out of the resulting wallet.
 \end{enumerate}
 
@@ -100,11 +101,11 @@ Emergenseed requires several underlying algorithms.
 \begin{itemize}
 	\item $\mathsf{Params} \mapsto n, p$. This function outputs a target entropy level $n$ in bits that is a multiple of 11, and a set of PBKDF parameters $p$.
 	\item $\mathsf{Entropy}(n) \mapsto b$. This function takes a number $n$ and outputs a list $b$ of $n$ random bits, sampled uniformly and independently from a high-quality source of randomness.
-	\item $\mathsf{BitsToWords}(b) \mapsto w$. This function takes a list $b$ of bits and outputs a list of BIP39 words $w$ that bijectively represent them.
-	\item $\mathsf{WordsToBits}(w) \mapsto b$. This function takes a list $w$ of BIP39 words and outputs a list of bits $b$ that represent them.
+	\item $\mathsf{BitsToWords}(b) \mapsto w$. This function takes a list $b$ of bits and outputs a list of BIP-39 words $w$ that bijectively represent them.
+	\item $\mathsf{WordsToBits}(w) \mapsto b$. This function takes a list $w$ of BIP-39 words and outputs a list of bits $b$ that represent them.
 	\item $\mathsf{Salt}(p) \mapsto s$. This function takes a set of parameters $p$ and outputs a salt $s$ according to a specified oracle.
 	\item $\mathsf{PBKDF}(p, s, b) \mapsto k$. This function takes a set of parameters $p$, salt $s$, and list of bits $b$, and outputs a key $k$ that is the result of applying a password-based key derivation function using $b$ as input.
-	\item $\mathsf{BIP39}(k) \mapsto s$. This function takes a key $k$, processes it as input entropy to the BIP39 algorithm, and outputs a wallet seed $s$.
+	\item $\mathsf{BIP39}(k) \mapsto s$. This function takes a key $k$, processes it as input entropy to the BIP-39 algorithm, and outputs a wallet seed $s$.
 \end{itemize}
 
 
@@ -133,13 +134,13 @@ After exiting the high-risk environment, the user reconstructs the wallet using 
 	\item Queries the oracle $\mathsf{Salt}(p) \mapsto s$ to obtain the salt.
 	\item Uses the client device to run $\mathsf{PBKDF}(p, s, b) \mapsto k$ to produce a key.
 	\item Produces a wallet seed by running $\mathsf{BIP39}(k) \mapsto s$.
-	\item Uses wallet software to transfer funds out of the wallet with seed $s$ to another wallet produced using the standard BIP39 approach (that is, without using the Emergenseed PBKDF).
+	\item Uses wallet software to transfer funds out of the wallet with seed $s$ to another wallet produced using the standard BIP-39 approach (that is, without using the Emergenseed PBKDF).
 \end{enumerate}
 
 At this point, the user has retrieved funds and moved them to a safer ``full-entropy'' wallet.
 
-We note that the method of mapping bits to and from BIP39 words is somewhat nonstandard.
-In BIP39, input entropy is partitioned into sets of 11 bits that are each mapped directly to an index.
+We note that the method of mapping bits to and from BIP-39 words is somewhat nonstandard.
+In BIP-39, input entropy is partitioned into sets of 11 bits that are each mapped directly to an index.
 While this is optimal in the sense that all input bits are used, it requires nontrivial bit operations, since input entropy is typically obtained and stored in bytes.
 The method used in Emergenseed requires extra entropy, some of which is discarded by clearing bits.
 However, the bit operations used to do so are much simpler and less prone to implementation error.
@@ -158,7 +159,7 @@ The more entropy corresponding to words memorized by the user, the safer the res
 
 We therefore recommend that the target entropy be set to at least $n = 77$ bits.
 However, we stress that this alone is \textit{insufficient} for any kind of long-term storage, which is why we require the use of a PBKDF to increase the cost of a brute-force attack so as to be impractical on a time scale that is on the order of the high-risk environment exposure.
-This particular choice of $n$ corresponds to $7$ words from the BIP39 word list.
+This particular choice of $n$ corresponds to $7$ words from the BIP-39 word list.
 
 One approach to maximizing the target entropy used to produce an Emergenseed is to have the user play a memory game with their device.
 Such a game can operate in rounds, where each round introduces a new additional word for the user to memorize.
@@ -182,10 +183,10 @@ While we do not specifically require the mitigation of side-channel attacks, we 
 This is estimated to impose a cost well exceeding trillions of dollars for a brute-force attack, which we consider more than adequate for the Emergenseed threat model.
 
 The choice of a modern PBKDF like \texttt{Argon2} enables the safe use of an Emergenseed for multiple asset protocols and types.
-While the key derivation method of BIP32 supports the derivation of keys for multiple asset types from a single seed as specified in BIP44, this process is not universal across all asset protocols for which the user may need support.
+While the key derivation method of BIP-32 supports the derivation of keys for multiple asset types from a single seed as specified in BIP-44, this process is not universal across all asset protocols for which the user may need support.
 To counter the risk of unsafe key collision, we propose the use of the \texttt{Argon2} associated data field as an additional layer of key separation.
-We recommend that this associated data field be populated with a domain separator that includes an asset type encoding from the SLIP44 registration list\footnote{\url{https://github.com/satoshilabs/slips/blob/master/slip-0044.md}} to reduce ambiguity and the likelihood of unintended collision.
-This still supports the use of later BIP32 and BIP44 key derivation, and is not necessary if the user only wishes to support asset protocols compatible with these standards.
+We recommend that this associated data field be populated with a domain separator that includes an asset type encoding from the SLIP-44 registration list\footnote{\url{https://github.com/satoshilabs/slips/blob/master/slip-0044.md}} to reduce ambiguity and the likelihood of unintended collision.
+This still supports the use of later BIP-32 and BIP-44 key derivation, and is not necessary if the user only wishes to support asset protocols compatible with these standards.
 
 
 \subsection{Use of random oracle in place of salt}
@@ -214,7 +215,7 @@ At this point, the user has presumably already transferred out their funds.
 However, the nature of many digital asset protocols is such that the history and trajectory of funds can be examined, either with or without the corresponding seed.
 
 The user should carefully determine if any particular digital asset protocol is suitably safe because of such risks.
-We note that while BIP39 (which is used to produce an Emergenseed) was designed with Bitcoin in mind, it can be (and is) used for other digital asset protocols due to its general nature.
+We note that while BIP-39 (which is used to produce an Emergenseed) was designed with Bitcoin in mind, it can be (and is) used for other digital asset protocols due to its general nature.
 
 
 \end{document}
